@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
+  <div id="sync-status" style="font-size: 11px; color: #64748b; text-align: center; margin-bottom: 8px;"></div>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="referrer" content="no-referrer">
@@ -195,28 +196,49 @@
     .catch(error => console.error("Error:", error));
   }
 
-  // スプレッドシート（GAS）から単語一覧を取得して同期する処理（修正版：0件時も正しく反映）
-  async function fetchWordsFromSpreadsheet() {
-    try {
-      const response = await fetch(GAS_URL + "?t=" + Date.now()); // キャッシュ対策のクエリ追加
-      const gasWords = await response.json();
-      
-      if (Array.isArray(gasWords)) {
-        gasWords.forEach(w => {
-          if (!w.katakana) w.katakana = generateKatakana(w.tagalog);
-        });
+// スプレッドシート（GAS）から単語一覧を取得して同期する処理（表記ブレ吸収＆エラー通知強化版）
+async function fetchWordsFromSpreadsheet() {
+  try {
+    const response = await fetch(GAS_URL + "?t=" + Date.now());
+    if (!response.ok) {
+      throw new Error(`HTTPエラー Status: ${response.status}`);
+    }
+    const gasWords = await response.json();
+    
+    if (Array.isArray(gasWords)) {
+      // スプレッドシート側の列名（word/tagalog, meaning/japanese等）の表記ブレを自動補正
+      const normalizedWords = gasWords.map((w, index) => {
+        const tagalog = w.tagalog || w.word || "";
+        const japanese = w.japanese || w.meaning || "";
+        const katakana = w.katakana || generateKatakana(tagalog);
+        const cat = w.cat || w.category || "追加単語";
+        return {
+          id: w.id || (Date.now() + index),
+          tagalog: tagalog,
+          japanese: japanese,
+          katakana: katakana,
+          cat: cat,
+          isCustom: true
+        };
+      }).filter(w => w.tagalog.trim() !== ""); // 空行を除外
 
-        // 0件の場合でもそのままローカルストレージに空データを反映する
-        saveCustomWords(gasWords);
-        reloadAllWordsData();
-        initCategorySelect();
-        updateCard();
-        if (!document.getElementById('tab-list').classList.contains('hidden')) renderList();
-      }
-    } catch (error) {
-      console.warn("スプレッドシートからの同期に失敗しました:", error);
+      // スプレッドシートの最新データをローカルに上書き保存
+      saveCustomWords(normalizedWords);
+      reloadAllWordsData();
+      initCategorySelect();
+      updateCard();
+      if (!document.getElementById('tab-list').classList.contains('hidden')) renderList();
+    }
+  } catch (error) {
+    console.warn("スプレッドシートからの同期に失敗しました:", error);
+    // iPhoneでエラーが発生した際に気付けるよう画面下部に小さく表示（不要になれば削除可）
+    const statusEl = document.getElementById('sync-status');
+    if (statusEl) {
+      statusEl.innerText = "⚠️ 同期エラー: GASのアクセス権限またはURLを確認してください";
+      statusEl.style.color = "#ef4444";
     }
   }
+}
 
   // iPhone内に残ったキャッシュ・データを完全に削除して再取得する
   function resetLocalData() {
