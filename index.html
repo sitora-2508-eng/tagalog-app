@@ -12,7 +12,6 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="タガログ語">
-  <!-- iPhoneホーム画面用アイコン (標準アイコン指定) -->
   <link rel="apple-touch-icon" href="icon-192.png">
 
   <style>
@@ -168,7 +167,7 @@
   // GAS連携用設定
   const GAS_URL = "https://script.google.com/macros/s/AKfycbzyMz4MweXtJS808D--VvWapK0bkGlhfXZtORv3-KgISvHW7DmvV6o5KOm1QN9rzlX0/exec";
 
-  // スプレッドシート（GAS）へ全情報（単語・訳・カタカナ・カテゴリ）を送信・保存
+  // スプレッドシート（GAS）へ全情報（単語・訳・カタカナ・カテゴリ）を保存
   function saveWordToSpreadsheet(wordObj) {
     fetch(GAS_URL, {
       method: "POST",
@@ -183,14 +182,16 @@
     .then(response => response.json())
     .then(data => {
       console.log("スプレッドシートに保存完了");
+      // 保存完了後にクラウドから最新一覧を取得して同期
+      fetchWordsFromSpreadsheet();
     })
     .catch(error => console.error("Error:", error));
   }
 
-  // スプレッドシート（GAS）から単語一覧を取得して読み込み・同期する処理
+  // スプレッドシート（GAS）から単語一覧を取得して同期する処理
   async function fetchWordsFromSpreadsheet() {
     try {
-      const response = await fetch(GAS_URL);
+      const response = await fetch(GAS_URL + "?t=" + Date.now()); // キャッシュ対策のクエリ追加
       const gasWords = await response.json();
       
       if (Array.isArray(gasWords) && gasWords.length > 0) {
@@ -297,7 +298,7 @@
   }
 
   function generateKatakana(tlText) {
-    let s = tlText.toLowerCase();
+    let s = String(tlText).toLowerCase();
     const map = [
       { en: 'ng', ja: 'ン' },
       { en: 'nya', ja: 'ニャ' }, { en: 'nyo', ja: 'ニョ' }, { en: 'nyu', ja: 'ニュ' },
