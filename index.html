@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="referrer" content="no-referrer">
-  <title>タガログ語 Go!</title>
+  <title>タガログGo!</title>
   
   <!-- PWA & iOS (iPhone) 専用設定 -->
   <link rel="manifest" href="manifest.json">
@@ -82,7 +82,7 @@
 
 <div class="app-container">
   <header>
-    <h1>🇵🇭 タガログ語 Go!</h1>
+    <h1>🇵🇭 タガログGo!</h1>
   </header>
 
   <!-- 同期ステータス表示エリア -->
@@ -176,6 +176,7 @@
       method: "POST",
       headers: { "Content-Type": "text/plain" },
       body: JSON.stringify({
+        action: "add",
         word: wordObj.tagalog,
         meaning: wordObj.japanese,
         katakana: wordObj.katakana,
@@ -188,6 +189,31 @@
       fetchWordsFromSpreadsheet();
     })
     .catch(error => console.error("Error:", error));
+  }
+
+  // スプレッドシート（GAS）から指定した単語を削除
+  function deleteWordFromSpreadsheet(wordObj) {
+    const statusEl = document.getElementById('sync-status');
+    if (statusEl) {
+      statusEl.innerText = "🔄 スプレッドシートから削除中...";
+      statusEl.style.color = "#2563eb";
+    }
+
+    fetch(GAS_URL, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain" },
+      body: JSON.stringify({
+        action: "delete",
+        word: wordObj.tagalog,
+        tagalog: wordObj.tagalog
+      })
+    })
+    .then(response => response.json())
+    .then(data => {
+      console.log("スプレッドシートから削除完了");
+      fetchWordsFromSpreadsheet();
+    })
+    .catch(error => console.error("削除エラー:", error));
   }
 
   // スプレッドシート（GAS）から単語一覧を取得して同期する処理
@@ -451,8 +477,16 @@
     if (!confirm("この単語を削除しますか？")) return;
     
     let customList = getCustomWords();
+    const targetWord = customList.find(w => w.id === id);
+
+    // ローカルストレージから削除
     customList = customList.filter(w => w.id !== id);
     saveCustomWords(customList);
+
+    // スプレッドシート（GAS）からも削除リクエストを送る
+    if (targetWord) {
+      deleteWordFromSpreadsheet(targetWord);
+    }
 
     reloadAllWordsData();
     initCategorySelect();
@@ -833,7 +867,6 @@
   window.addEventListener('touchend', () => {
     if (isPtrPulling) {
       const pullDistance = ptrCurrentY - ptrStartY;
-      // 120px以上下に引っ張られたらページを更新
       if (pullDistance > 120) {
         const statusEl = document.getElementById('sync-status');
         if (statusEl) {
