@@ -159,6 +159,13 @@
       <div class="form-note">※ タガログ語のみの入力でも、翻訳・カタカナ・カテゴリを自動補完します。</div>
     </div>
 
+    <!-- データリセットボタン（iPhone残存キャッシュの強制削除用） -->
+    <div style="margin-bottom: 15px; text-align: center;">
+      <button onclick="resetLocalData()" style="background: #ef4444; color: white; border: none; padding: 10px 15px; border-radius: 8px; font-size: 13px; font-weight: bold; cursor: pointer; width: 100%;">
+        🗑️ iPhone内の保存データを強制クリア＆再同期
+      </button>
+    </div>
+
     <div id="word-list" class="word-list"></div>
   </div>
 </div>
@@ -188,17 +195,18 @@
     .catch(error => console.error("Error:", error));
   }
 
-  // スプレッドシート（GAS）から単語一覧を取得して同期する処理
+  // スプレッドシート（GAS）から単語一覧を取得して同期する処理（修正版：0件時も正しく反映）
   async function fetchWordsFromSpreadsheet() {
     try {
       const response = await fetch(GAS_URL + "?t=" + Date.now()); // キャッシュ対策のクエリ追加
       const gasWords = await response.json();
       
-      if (Array.isArray(gasWords) && gasWords.length > 0) {
+      if (Array.isArray(gasWords)) {
         gasWords.forEach(w => {
           if (!w.katakana) w.katakana = generateKatakana(w.tagalog);
         });
 
+        // 0件の場合でもそのままローカルストレージに空データを反映する
         saveCustomWords(gasWords);
         reloadAllWordsData();
         initCategorySelect();
@@ -207,6 +215,16 @@
       }
     } catch (error) {
       console.warn("スプレッドシートからの同期に失敗しました:", error);
+    }
+  }
+
+  // iPhone内に残ったキャッシュ・データを完全に削除して再取得する
+  function resetLocalData() {
+    if (confirm("iPhoneに保存された追加単語データを削除し、スプレッドシートから再読み込みしますか？")) {
+      localStorage.removeItem('tagalog_custom_words');
+      localStorage.removeItem('tagalog_quiz_stats');
+      alert("ローカルデータをクリアしました。スプレッドシートから再取得します。");
+      fetchWordsFromSpreadsheet();
     }
   }
 
@@ -224,7 +242,7 @@
   document.addEventListener('touchstart', unlockAudioForiOS, { passive: true });
   document.addEventListener('click', unlockAudioForiOS, { passive: true });
 
-  // 初期定義単語リスト
+  // 初期定義単語リスト（必要に応じて [] に変更可能です）
   const defaultWordsData = [
     { tagalog: "Magandang umaga", katakana: "マガンダン ウマーガ", japanese: "おはようございます", cat: "挨拶" },
     { tagalog: "Magandang tanghali", katakana: "マガンダン タンハーリ", japanese: "こんにちは(昼)", cat: "挨拶" },
