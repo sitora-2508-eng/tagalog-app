@@ -16,7 +16,7 @@
 
   <style>
     * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; -webkit-tap-highlight-color: transparent; }
-    body { background-color: #f1f5f9; margin: 0; padding: 15px; color: #1e293b; display: flex; flex-direction: column; align-items: center; -webkit-user-select: none; user-select: none; }
+    body { background-color: #f1f5f9; margin: 0; padding: 15px; color: #1e293b; display: flex; flex-direction: column; align-items: center; -webkit-user-select: none; user-select: none; overscroll-behavior-y: contain; }
     
     .app-container { width: 100%; max-width: 480px; }
     header { text-align: center; margin-bottom: 5px; }
@@ -812,6 +812,41 @@
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js');
   }
+
+  // ホーム画面追加時（PWA）向け：画面最上部で下スワイプによるページ再読み込み（プル・トゥ・リフレッシュ）
+  let ptrStartY = 0;
+  let ptrCurrentY = 0;
+  let isPtrPulling = false;
+
+  window.addEventListener('touchstart', (e) => {
+    if (window.scrollY === 0 && e.touches.length === 1) {
+      ptrStartY = e.touches[0].clientY;
+      isPtrPulling = true;
+    }
+  }, { passive: true });
+
+  window.addEventListener('touchmove', (e) => {
+    if (!isPtrPulling) return;
+    ptrCurrentY = e.touches[0].clientY;
+  }, { passive: true });
+
+  window.addEventListener('touchend', () => {
+    if (isPtrPulling) {
+      const pullDistance = ptrCurrentY - ptrStartY;
+      // 120px以上下に引っ張られたらページを更新
+      if (pullDistance > 120) {
+        const statusEl = document.getElementById('sync-status');
+        if (statusEl) {
+          statusEl.innerText = "🔄 画面を更新中...";
+          statusEl.style.color = "#2563eb";
+        }
+        location.reload();
+      }
+    }
+    isPtrPulling = false;
+    ptrStartY = 0;
+    ptrCurrentY = 0;
+  }, { passive: true });
 
   // 初期化：ローカルデータで即時表示
   reloadAllWordsData();
