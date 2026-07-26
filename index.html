@@ -162,13 +162,6 @@
       <div class="form-note">※ タガログ語のみの入力でも、翻訳・カタカナ・カテゴリを自動補完します。</div>
     </div>
 
-    <!-- データリセットボタン（iPhone残存キャッシュの強制削除用） -->
-    <div style="margin-bottom: 15px; text-align: center;">
-      <button onclick="resetLocalData()" style="background: #ef4444; color: white; border: none; padding: 10px 15px; border-radius: 8px; font-size: 13px; font-weight: bold; cursor: pointer; width: 100%;">
-        🗑️ iPhone内の保存データを強制クリア＆再同期
-      </button>
-    </div>
-
     <div id="word-list" class="word-list"></div>
   </div>
 </div>
@@ -197,7 +190,7 @@
     .catch(error => console.error("Error:", error));
   }
 
-  // スプレッドシート（GAS）から単語一覧を取得して同期する処理（強化版）
+  // スプレッドシート（GAS）から単語一覧を取得して同期する処理
   async function fetchWordsFromSpreadsheet() {
     const statusEl = document.getElementById('sync-status');
     try {
@@ -248,16 +241,6 @@
         statusEl.innerText = "⚠️ 同期失敗: GASのアクセス権限（全員）またはコードを確認してください";
         statusEl.style.color = "#ef4444";
       }
-    }
-  }
-
-  // iPhone内に残ったキャッシュ・データを完全に削除して再取得する
-  function resetLocalData() {
-    if (confirm("iPhoneに保存された追加単語データを削除し、スプレッドシートから再読み込みしますか？")) {
-      localStorage.removeItem('tagalog_custom_words');
-      localStorage.removeItem('tagalog_quiz_stats');
-      alert("ローカルデータをクリアしました。スプレッドシートから再取得します。");
-      fetchWordsFromSpreadsheet();
     }
   }
 
