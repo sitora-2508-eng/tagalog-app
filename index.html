@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="referrer" content="no-referrer">
+  <title>タガログ語 Go!</title>
+  
+  <!-- PWA & iOS (iPhone) 専用設定 -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#2563eb">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="タガログ語">
+  <!-- iPhoneホーム画面用アイコン (標準アイコン指定) -->
+  <link rel="apple-touch-icon" href="icon-192.png">
+
+  <style>
+    * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; -webkit-tap-highlight-color: transparent; }
+    body { background-color: #f1f5f9; margin: 0; padding: 15px; color: #1e293b; display: flex; flex-direction: column; align-items: center; -webkit-user-select: none; user-select: none; }
+    
+    .app-container { width: 100%; max-width: 480px; }
+    header { text-align: center; margin-bottom: 15px; }
+    h1 { font-size: 22px; color: #1e3a8a; margin: 5px 0; }
+    
+    /* タブ切り替え */
+    .tabs { display: flex; background: #e2e8f0; border-radius: 12px; padding: 4px; margin-bottom: 15px; }
+    .tab-btn { flex: 1; padding: 10px; border: none; background: transparent; border-radius: 8px; font-weight: bold; color: #64748b; cursor: pointer; transition: 0.2s; }
+    .tab-btn.active { background: white; color: #2563eb; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+
+    /* コントロールエリア */
+    .controls-grid { display: flex; gap: 8px; margin-bottom: 15px; }
+    .select-box { flex: 1; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 13px; background: white; font-weight: bold; }
+
+    /* フラッシュカード（3Dめくり） */
+    .flashcard-container { perspective: 1000px; height: 260px; margin-bottom: 20px; cursor: pointer; touch-action: pan-y; }
+    .flashcard { width: 100%; height: 100%; position: relative; transform-style: preserve-3d; transition: transform 0.6s; }
+    .flashcard.flipped { transform: rotateY(180deg); }
+    .card-face { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; border-radius: 16px; background: white; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); text-align: center; }
+    .card-back { transform: rotateY(180deg); background: #f8fafc; border: 2px solid #3b82f6; }
+    
+    .tagalog-text { font-size: 28px; font-weight: bold; color: #1e3a8a; margin-bottom: 8px; }
+    .katakana-text { font-size: 16px; color: #64748b; margin-bottom: 4px; }
+    .japanese-text { font-size: 24px; font-weight: bold; color: #0f172a; margin-bottom: 8px; }
+    .hint-text { font-size: 12px; color: #94a3b8; margin-top: 15px; }
+
+    /* ボタン群 */
+    .btn-group { display: flex; gap: 10px; }
+    .btn { flex: 1; padding: 12px; border: none; border-radius: 10px; font-size: 15px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; }
+    .btn-secondary { background: #cbd5e1; color: #334155; }
+    .btn-primary { background: #2563eb; color: white; }
+    .btn-success { background: #10b981; color: white; }
+
+    /* 単語追加フォーム */
+    .add-word-box { background: white; border-radius: 12px; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+    .add-word-box h3 { margin: 0 0 10px 0; font-size: 15px; color: #1e3a8a; }
+    .form-group { margin-bottom: 8px; }
+    .input-text { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; -webkit-user-select: text; user-select: text; }
+    .form-note { font-size: 11px; color: #64748b; margin-top: 4px; }
+
+    /* クイズ画面 */
+    .quiz-box { background: white; border-radius: 16px; padding: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); text-align: center; }
+    .quiz-stats-badge { font-size: 11px; color: #2563eb; background: #eff6ff; padding: 4px 10px; border-radius: 12px; display: inline-block; margin-bottom: 10px; font-weight: bold; }
+    .quiz-options { display: flex; flex-direction: column; gap: 10px; margin-top: 15px; }
+    .quiz-opt-btn { padding: 14px; border: 2px solid #e2e8f0; border-radius: 10px; background: white; font-size: 16px; font-weight: bold; cursor: pointer; text-align: left; transition: 0.2s; }
+    .quiz-opt-btn.correct { background: #dcfce7; border-color: #22c55e; color: #15803d; }
+    .quiz-opt-btn.wrong { background: #fee2e2; border-color: #ef4444; color: #b91c1c; }
+
+    /* クイズフィードバック表示 */
+    .quiz-feedback { margin-top: 15px; padding: 12px; border-radius: 10px; font-weight: bold; font-size: 16px; }
+    .quiz-feedback.correct-msg { background: #dcfce7; color: #15803d; border: 1px solid #86efac; }
+    .quiz-feedback.wrong-msg { background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; }
+
+    /* 単語帳 */
+    .word-list { display: flex; flex-direction: column; gap: 10px; }
+    .word-item { background: white; padding: 14px; border-radius: 10px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+    .delete-btn { background: #fee2e2; color: #ef4444; border: none; padding: 6px 10px; border-radius: 6px; font-size: 12px; cursor: pointer; font-weight: bold; margin-left: 8px; }
+
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+<div class="app-container">
+  <header>
+    <h1>🇵🇭 タガログ語 Go!</h1>
+  </header>
+
+  <!-- タブナビゲーション -->
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('cards')">🎴 カード</button>
+    <button class="tab-btn" onclick="switchTab('quiz')">❓ 4択クイズ</button>
+    <button class="tab-btn" onclick="switchTab('list')">📖 単語帳</button>
+  </div>
+
+  <!-- カテゴリ ＆ モード選択 -->
+  <div class="controls-grid">
+    <select id="categorySelect" class="select-box" onchange="changeCategory()">
+      <!-- 自動生成 -->
+    </select>
+
+    <select id="modeSelect" class="select-box" onchange="changeMode()">
+      <option value="tl-ja">🇵🇭 ➔ 🇯🇵 (タガログ➔日本)</option>
+      <option value="ja-tl">🇯🇵 ➔ 🇵🇭 (日本➔タガログ)</option>
+    </select>
+  </div>
+
+  <!-- 1. フラッシュカード画面 -->
+  <div id="tab-cards">
+    <div id="flashcard-container" class="flashcard-container" onclick="handleCardClick()">
+      <div id="flashcard" class="flashcard">
+        <div id="card-front" class="card-face card-front"></div>
+        <div id="card-back" class="card-face card-back"></div>
+      </div>
+    </div>
+
+    <div class="btn-group">
+      <button class="btn btn-secondary" onclick="prevCard()">← 前へ</button>
+      <button class="btn btn-primary" onclick="playAudioCurrent()">🔊 発音</button>
+      <button class="btn btn-success" onclick="nextCard()">次へ ➔</button>
+    </div>
+  </div>
+
+  <!-- 2. 4択クイズ画面 -->
+  <div id="tab-quiz" class="hidden">
+    <div class="quiz-box">
+      <div id="quiz-badge" class="quiz-stats-badge">🎯 モード別 苦手分析稼働中</div>
+      <div id="quiz-title" style="font-size: 14px; color: #64748b; margin-bottom: 8px;">このタガログ語の意味は？</div>
+      <div id="quiz-question" class="tagalog-text">Magandang umaga</div>
+
+      <!-- 選択肢 -->
+      <div id="quiz-options" class="quiz-options"></div>
+
+      <!-- 結果表示領域 -->
+      <div id="quiz-feedback" class="quiz-feedback hidden"></div>
+
+      <!-- 不正解時に出せる「次の問題」ボタン -->
+      <button id="quiz-next-btn" class="btn btn-success hidden" style="margin-top: 15px; width: 100%;" onclick="startQuiz()">次の問題へ ➔</button>
+    </div>
+  </div>
+
+  <!-- 3. 単語帳画面 -->
+  <div id="tab-list" class="hidden">
+    <!-- 単語登録フォーム -->
+    <div class="add-word-box">
+      <h3>➕ 新しい単語を登録</h3>
+      <div class="form-group">
+        <input type="text" id="add-tagalog" class="input-text" placeholder="タガログ語 (必須 例: Masaya)">
+      </div>
+      <div class="form-group">
+        <input type="text" id="add-japanese" class="input-text" placeholder="日本語 (空欄なら自動翻訳)">
+      </div>
+      <div class="form-group">
+        <input type="text" id="add-katakana" class="input-text" placeholder="カタカナ読み (空欄なら自動生成)">
+      </div>
+      <div class="form-group">
+        <input type="text" id="add-category" class="input-text" placeholder="カテゴリ (空欄なら「追加単語」)">
+      </div>
+      <button id="add-submit-btn" class="btn btn-primary" style="width: 100%;" onclick="addNewWord()">単語を追加・自動補完</button>
+      <div class="form-note">※ タガログ語のみの入力でも、翻訳・カタカナ・カテゴリを自動補完します。</div>
+    </div>
+
+    <div id="word-list" class="word-list"></div>
+  </div>
+</div>
+
+<script>
+  // iOS (iPhone) 音声再生ブロックの自動解除処理
+  let isAudioUnlocked = false;
+  function unlockAudioForiOS() {
+    if (isAudioUnlocked) return;
+    const dummy = new Audio('data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA');
+    dummy.play().then(() => {
+      isAudioUnlocked = true;
+      document.removeEventListener('touchstart', unlockAudioForiOS);
+      document.removeEventListener('click', unlockAudioForiOS);
+    }).catch(() => {});
+  }
+  document.addEventListener('touchstart', unlockAudioForiOS, { passive: true });
+  document.addEventListener('click', unlockAudioForiOS, { passive: true });
+
+  // 初期定義単語リスト
+  const defaultWordsData = [
+    { tagalog: "Magandang umaga", katakana: "マガンダン ウマーガ", japanese: "おはようございます", cat: "挨拶" },
+    { tagalog: "Magandang tanghali", katakana: "マガンダン タンハーリ", japanese: "こんにちは(昼)", cat: "挨拶" },
+    { tagalog: "Magandang hapon", katakana: "マガンダン ハーポン", japanese: "こんにちは(夕方)", cat: "挨拶" },
+    { tagalog: "Magandang gabi", katakana: "マガンダン ガービ", japanese: "こんばんは", cat: "挨拶" },
+    { tagalog: "Salamat", katakana: "サラマット", japanese: "ありがとう", cat: "挨拶" },
+    { tagalog: "Maraming salamat", katakana: "マラミン サラマット", japanese: "どうもありがとう", cat: "挨拶" },
+    { tagalog: "Walang anuman", katakana: "ワラン アヌマン", japanese: "どういたしまして", cat: "挨拶" },
+    { tagalog: "Kamusta ka?", katakana: "カムスタ カ", japanese: "お元気ですか？", cat: "挨拶" },
+    { tagalog: "Mabuti naman", katakana: "マブーティ ナマン", japanese: "元気です", cat: "挨拶" },
+    { tagalog: "Paalam", katakana: "パーラム", japanese: "さようなら", cat: "挨拶" },
+    { tagalog: "Ingat", katakana: "インガット", japanese: "気をつけてね", cat: "挨拶" },
+    { tagalog: "Opo / Oo", katakana: "オポ / オオ", japanese: "はい", cat: "日常会話" },
+    { tagalog: "Hindi", katakana: "ヒンディ", japanese: "いいえ", cat: "日常会話" },
+    { tagalog: "Masarap!", katakana: "マサラップ", japanese: "おいしい！", cat: "日常会話" },
+    { tagalog: "Pasensya na", katakana: "パセンシャ ナ", japanese: "ごめんなさい", cat: "日常会話" },
+    { tagalog: "Sandali lang", katakana: "サンダリ ラン", japanese: "ちょっと待って", cat: "日常会話" },
+    { tagalog: "Tulong!", katakana: "トゥロング", japanese: "助けて！", cat: "日常会話" },
+    { tagalog: "Ayaw ko", katakana: "アヤウ コ", japanese: "いやです / いりません", cat: "日常会話" },
+    { tagalog: "Gusto ko ito", katakana: "グスト コ イト", japanese: "これが欲しいです", cat: "日常会話" },
+    { tagalog: "Hindi ko alam", katakana: "ヒンディ コ アラム", japanese: "分かりません / 知りません", cat: "日常会話" },
+    { tagalog: "Naintindihan ko", katakana: "ナインティンディハン コ", japanese: "わかりました", cat: "日常会話" },
+    { tagalog: "Magkano ito?", katakana: "マグカーノ イト", japanese: "いくらですか？", cat: "買い物・食事" },
+    { tagalog: "Pakiusap", katakana: "パキウサップ", japanese: "お願いします", cat: "買い物・食事" },
+    { tagalog: "Mahal", katakana: "マハール", japanese: "高い（値段）", cat: "買い物・食事" },
+    { tagalog: "Mura", katakana: "ムーラ", japanese: "安い", cat: "買い物・食事" },
+    { tagalog: "Tubig", katakana: "トゥビッグ", japanese: "水", cat: "買い物・食事" },
+    { tagalog: "Kanin", katakana: "カニン", japanese: "ご飯", cat: "買い物・食事" },
+    { tagalog: "Isa pa", katakana: "イサ パ", japanese: "もうひとつ", cat: "買い物・食事" },
+    { tagalog: "Ano ito?", katakana: "アノ イト", japanese: "何ですか？", cat: "質問" },
+    { tagalog: "Sino ka?", katakana: "シノ カ", japanese: "誰ですか？", cat: "質問" },
+    { tagalog: "Saan?", katakana: "サアン", japanese: "どこですか？", cat: "質問" },
+    { tagalog: "Kailan?", katakana: "カイラン", japanese: "いつですか？", cat: "質問" },
+    { tagalog: "Bakit?", katakana: "バキット", japanese: "なぜですか？", cat: "質問" },
+    { tagalog: "Isa", katakana: "イサ", japanese: "1 (一)", cat: "数字" },
+    { tagalog: "Dalawa", katakana: "ダラワ", japanese: "2 (二)", cat: "数字" },
+    { tagalog: "Tatlo", katakana: "タトロ", japanese: "3 (三)", cat: "数字" },
+    { tagalog: "Apat", katakana: "アパット", japanese: "4 (四)", cat: "数字" },
+    { tagalog: "Lima", katakana: "リマ", japanese: "5 (五)", cat: "数字" }
+  ];
+
+  let wordsData = [];
+  let currentWords = [];
+  let cardIndex = 0;
+  let cardMode = 'tl-ja';
+  let quizCurrent = null;
+  let quizAnswered = false;
+
+  let currentAudio = null;
+  const audioCache = {};
+
+  let touchStartX = 0;
+  let touchStartY = 0;
+  let isSwiping = false;
+
+  function getCustomWords() {
+    const custom = localStorage.getItem('tagalog_custom_words');
+    return custom ? JSON.parse(custom) : [];
+  }
+
+  function saveCustomWords(customList) {
+    localStorage.setItem('tagalog_custom_words', JSON.stringify(customList));
+  }
+
+  function reloadAllWordsData() {
+    const custom = getCustomWords();
+    wordsData = [...defaultWordsData, ...custom];
+    const select = document.getElementById('categorySelect');
+    const selectedCat = select ? select.value : 'all';
+    currentWords = selectedCat === 'all' || !selectedCat ? [...wordsData] : wordsData.filter(w => w.cat === selectedCat);
+  }
+
+  function generateKatakana(tlText) {
+    let s = tlText.toLowerCase();
+    const map = [
+      { en: 'ng', ja: 'ン' },
+      { en: 'nya', ja: 'ニャ' }, { en: 'nyo', ja: 'ニョ' }, { en: 'nyu', ja: 'ニュ' },
+      { en: 'ka', ja: 'カ' }, { en: 'ki', ja: 'キ' }, { en: 'ku', ja: 'ク' }, { en: 'ke', ja: 'ケ' }, { en: 'ko', ja: 'コ' },
+      { en: 'ga', ja: 'ガ' }, { en: 'gi', ja: 'ギ' }, { en: 'gu', ja: 'グ' }, { en: 'ge', ja: 'ゲ' }, { en: 'go', ja: 'ゴ' },
+      { en: 'sa', ja: 'サ' }, { en: 'si', ja: 'シ' }, { en: 'su', ja: 'ス' }, { en: 'se', ja: 'セ' }, { en: 'so', ja: 'ソ' },
+      { en: 'ta', ja: 'タ' }, { en: 'ti', ja: 'チ' }, { en: 'tu', ja: 'トゥ' }, { en: 'te', ja: 'テ' }, { en: 'to', ja: 'ト' },
+      { en: 'da', ja: 'ダ' }, { en: 'di', ja: 'ディ' }, { en: 'du', ja: 'ドゥ' }, { en: 'de', ja: 'デ' }, { en: 'do', ja: 'ド' },
+      { en: 'na', ja: 'ナ' }, { en: 'ni', ja: 'ニ' }, { en: 'nu', ja: 'ヌ' }, { en: 'ne', ja: 'ネ' }, { en: 'no', ja: 'ノ' },
+      { en: 'ha', ja: 'ハ' }, { en: 'hi', ja: 'ヒ' }, { en: 'hu', ja: 'フ' }, { en: 'he', ja: 'ヘ' }, { en: 'ho', ja: 'ホ' },
+      { en: 'ba', ja: 'バ' }, { en: 'bi', ja: 'ビ' }, { en: 'bu', ja: 'ブ' }, { en: 'be', ja: 'ベ' }, { en: 'bo', ja: 'ボ' },
+      { en: 'pa', ja: 'パ' }, { en: 'pi', ja: 'ピ' }, { en: 'pu', ja: 'プ' }, { en: 'pe', ja: 'ペ' }, { en: 'po', ja: 'ポ' },
+      { en: 'ma', ja: 'マ' }, { en: 'mi', ja: 'ミ' }, { en: 'mu', ja: 'ム' }, { en: 'me', ja: 'メ' }, { en: 'mo', ja: 'モ' },
+      { en: 'ya', ja: 'ヤ' }, { en: 'yu', ja: 'ユ' }, { en: 'yo', ja: 'ヨ' },
+      { en: 'ra', ja: 'ラ' }, { en: 'ri', ja: 'リ' }, { en: 'ru', ja: 'ル' }, { en: 're', ja: 'レ' }, { en: 'ro', ja: 'ロ' },
+      { en: 'la', ja: 'ラ' }, { en: 'li', ja: 'リ' }, { en: 'lu', ja: 'ル' }, { en: 'le', ja: 'レ' }, { en: 'lo', ja: 'ロ' },
+      { en: 'wa', ja: 'ワ' }, { en: 'wi', ja: 'ウィ' }, { en: 'we', ja: 'ウェ' }, { en: 'wo', ja: 'ウォ' },
+      { en: 'a', ja: 'ア' }, { en: 'i', ja: 'イ' }, { en: 'u', ja: 'ウ' }, { en: 'e', ja: 'エ' }, { en: 'o', ja: 'オ' },
+      { en: 'n', ja: 'ン' }, { en: 'm', ja: 'ム' }, { en: 'k', ja: 'ク' }, { en: 's', ja: 'ス' }, { en: 't', ja: 'ト' },
+      { en: 'p', ja: 'プ' }, { en: 'g', ja: 'グ' }, { en: 'l', ja: 'ル' }, { en: 'r', ja: 'ル' }, { en: 'd', ja: 'ド' }, { en: 'b', ja: 'ブ' }
+    ];
+
+    let result = '';
+    let i = 0;
+    while (i < s.length) {
+      let matched = false;
+      for (let item of map) {
+        if (s.substr(i, item.en.length) === item.en) {
+          result += item.ja;
+          i += item.en.length;
+          matched = true;
+          break;
+        }
+      }
+      if (!matched) {
+        result += s[i];
+        i++;
+      }
+    }
+    return result.charAt(0).toUpperCase() + result.slice(1);
+  }
+
+  async function addNewWord() {
+    const tagalogInput = document.getElementById('add-tagalog');
+    const japaneseInput = document.getElementById('add-japanese');
+    const katakanaInput = document.getElementById('add-katakana');
+    const categoryInput = document.getElementById('add-category');
+    const submitBtn = document.getElementById('add-submit-btn');
+
+    const tagalog = tagalogInput.value.trim();
+    if (!tagalog) {
+      alert("タガログ語を入力してください。");
+      return;
+    }
+
+    submitBtn.innerText = "自動処理中...";
+    submitBtn.disabled = true;
+
+    let japanese = japaneseInput.value.trim();
+    let katakana = katakanaInput.value.trim();
+    let cat = categoryInput.value.trim() || "追加単語";
+
+    if (!japanese) {
+      try {
+        const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=tl&tl=ja&dt=t&q=${encodeURIComponent(tagalog)}`;
+        const res = await fetch(url);
+        const data = await res.json();
+        
+        if (data && data[0] && data[0][0] && data[0][0][0]) {
+          japanese = data[0][0][0];
+        } else {
+          japanese = "（未設定）";
+        }
+      } catch (e) {
+        japanese = "（未設定）";
+      }
+    }
+
+    if (!katakana) {
+      katakana = generateKatakana(tagalog);
+    }
+
+    const customList = getCustomWords();
+    const newWord = {
+      id: Date.now(),
+      tagalog: tagalog,
+      katakana: katakana,
+      japanese: japanese,
+      cat: cat,
+      isCustom: true
+    };
+
+    customList.push(newWord);
+    saveCustomWords(customList);
+
+    tagalogInput.value = '';
+    japaneseInput.value = '';
+    katakanaInput.value = '';
+    categoryInput.value = '';
+
+    submitBtn.innerText = "単語を追加・自動補完";
+    submitBtn.disabled = false;
+
+    reloadAllWordsData();
+    initCategorySelect();
+    renderList();
+    updateCard();
+
+    alert(`「${tagalog}」を登録しました！\n（訳: ${japanese} / 読み: ${katakana} / カテゴリ: ${cat}）`);
+  }
+
+  function deleteCustomWord(id) {
+    if (!confirm("この単語を削除しますか？")) return;
+    
+    let customList = getCustomWords();
+    customList = customList.filter(w => w.id !== id);
+    saveCustomWords(customList);
+
+    reloadAllWordsData();
+    initCategorySelect();
+    renderList();
+    updateCard();
+  }
+
+  function getWordStats() {
+    const stats = localStorage.getItem('tagalog_quiz_stats');
+    return stats ? JSON.parse(stats) : {};
+  }
+
+  function saveWordStats(stats) {
+    localStorage.setItem('tagalog_quiz_stats', JSON.stringify(stats));
+  }
+
+  function calculateWordWeight(word) {
+    const stats = getWordStats();
+    const key = `${cardMode}_${word.tagalog}`;
+    const wordStat = stats[key] || { correct: 0, incorrect: 0 };
+    let weight = 10 + (wordStat.incorrect * 5) - (wordStat.correct * 2);
+    return Math.max(1, weight);
+  }
+
+  function getWeightedRandomWord(words) {
+    if (words.length === 0) return null;
+    const weights = words.map(w => calculateWordWeight(w));
+    const totalWeight = weights.reduce((sum, w) => sum + w, 0);
+
+    let random = Math.random() * totalWeight;
+    for (let i = 0; i < words.length; i++) {
+      if (random < weights[i]) {
+        return words[i];
+      }
+      random -= weights[i];
+    }
+    return words[0];
+  }
+
+  function initCategorySelect() {
+    const select = document.getElementById('categorySelect');
+    const currentVal = select.value;
+    const categories = ['all', ...new Set(wordsData.map(w => w.cat))];
+    select.innerHTML = '';
+    categories.forEach(cat => {
+      const opt = document.createElement('option');
+      opt.value = cat;
+      opt.innerText = cat === 'all' ? 'すべてのカテゴリ' : cat;
+      select.appendChild(opt);
+    });
+
+    if (categories.includes(currentVal)) {
+      select.value = currentVal;
+    } else {
+      select.value = 'all';
+    }
+  }
+
+  function speakTagalog(text) {
+    if (currentAudio) {
+      currentAudio.pause();
+      currentAudio.currentTime = 0;
+    }
+
+    if (audioCache[text]) {
+      currentAudio = audioCache[text];
+      currentAudio.currentTime = 0;
+      currentAudio.play().catch(e => console.log(e));
+      return;
+    }
+
+    const encodedText = encodeURIComponent(text);
+    const primaryUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=tl&client=tw-ob&q=${encodedText}`;
+    const secondaryUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=tl&client=gtx&q=${encodedText}`;
+
+    const audio = new Audio(primaryUrl);
+    currentAudio = audio;
+
+    audio.play().then(() => {
+      audioCache[text] = audio;
+    }).catch(() => {
+      const retryAudio = new Audio(secondaryUrl);
+      currentAudio = retryAudio;
+      retryAudio.play().then(() => {
+        audioCache[text] = retryAudio;
+      }).catch(err => {
+        console.warn("Google音声取得エラー:", err);
+      });
+    });
+  }
+
+  function playAudioCurrent() {
+    if (currentWords.length === 0) return;
+    speakTagalog(currentWords[cardIndex].tagalog);
+  }
+
+  function updateCard() {
+    if (currentWords.length === 0) {
+      document.getElementById('card-front').innerHTML = '<div style="color:#64748b;">単語がありません</div>';
+      document.getElementById('card-back').innerHTML = '';
+      return;
+    }
+    if (cardIndex >= currentWords.length) cardIndex = 0;
+
+    const item = currentWords[cardIndex];
+    const frontEl = document.getElementById('card-front');
+    const backEl = document.getElementById('card-back');
+
+    if (cardMode === 'tl-ja') {
+      frontEl.innerHTML = `
+        <div class="tagalog-text">${item.tagalog}</div>
+        <div class="hint-text">💡 タップでめくる / 左右スワイプで移動</div>
+      `;
+      backEl.innerHTML = `
+        <div class="katakana-text">${item.katakana}</div>
+        <div class="japanese-text">${item.japanese}</div>
+      `;
+    } else {
+      frontEl.innerHTML = `
+        <div class="japanese-text">${item.japanese}</div>
+        <div class="hint-text">💡 タップでめくる / 左右スワイプで移動</div>
+      `;
+      backEl.innerHTML = `
+        <div class="tagalog-text">${item.tagalog}</div>
+        <div class="katakana-text">${item.katakana}</div>
+      `;
+    }
+  }
+
+  function flipCard() {
+    document.getElementById('flashcard').classList.toggle('flipped');
+  }
+
+  function handleCardClick() {
+    if (isSwiping) {
+      isSwiping = false;
+      return;
+    }
+    flipCard();
+  }
+
+  function nextCard() {
+    if (currentWords.length === 0) return;
+    const flashcard = document.getElementById('flashcard');
+    flashcard.style.transition = 'none';
+    flashcard.classList.remove('flipped');
+
+    cardIndex = (cardIndex + 1) % currentWords.length;
+    updateCard();
+
+    setTimeout(() => {
+      flashcard.style.transition = 'transform 0.6s';
+    }, 50);
+  }
+
+  function prevCard() {
+    if (currentWords.length === 0) return;
+    const flashcard = document.getElementById('flashcard');
+    flashcard.style.transition = 'none';
+    flashcard.classList.remove('flipped');
+
+    cardIndex = (cardIndex - 1 + currentWords.length) % currentWords.length;
+    updateCard();
+
+    setTimeout(() => {
+      flashcard.style.transition = 'transform 0.6s';
+    }, 50);
+  }
+
+  const container = document.getElementById('flashcard-container');
+  
+  container.addEventListener('touchstart', (e) => {
+    touchStartX = e.changedTouches[0].screenX;
+    touchStartY = e.changedTouches[0].screenY;
+    isSwiping = false;
+  }, { passive: true });
+
+  container.addEventListener('touchend', (e) => {
+    const touchEndX = e.changedTouches[0].screenX;
+    const touchEndY = e.changedTouches[0].screenY;
+    const diffX = touchEndX - touchStartX;
+    const diffY = touchEndY - touchStartY;
+
+    if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 40) {
+      isSwiping = true;
+      if (diffX < 0) {
+        nextCard();
+      } else {
+        prevCard();
+      }
+    }
+  }, { passive: true });
+
+  function changeMode() {
+    cardMode = document.getElementById('modeSelect').value;
+    const flashcard = document.getElementById('flashcard');
+    flashcard.style.transition = 'none';
+    flashcard.classList.remove('flipped');
+    updateCard();
+    setTimeout(() => {
+      flashcard.style.transition = 'transform 0.6s';
+    }, 50);
+
+    if (!document.getElementById('tab-quiz').classList.contains('hidden')) startQuiz();
+  }
+
+  function changeCategory() {
+    const cat = document.getElementById('categorySelect').value;
+    currentWords = cat === 'all' ? [...wordsData] : wordsData.filter(w => w.cat === cat);
+    cardIndex = 0;
+    
+    const flashcard = document.getElementById('flashcard');
+    flashcard.style.transition = 'none';
+    flashcard.classList.remove('flipped');
+    
+    updateCard();
+    renderList();
+    if (!document.getElementById('tab-quiz').classList.contains('hidden')) startQuiz();
+    
+    setTimeout(() => {
+      flashcard.style.transition = 'transform 0.6s';
+    }, 50);
+  }
+
+  function switchTab(tabName) {
+    document.querySelectorAll('.tab-btn').forEach((btn, idx) => {
+      btn.classList.toggle('active', ['cards', 'quiz', 'list'][idx] === tabName);
+    });
+    document.getElementById('tab-cards').classList.toggle('hidden', tabName !== 'cards');
+    document.getElementById('tab-quiz').classList.toggle('hidden', tabName !== 'quiz');
+    document.getElementById('tab-list').classList.toggle('hidden', tabName !== 'list');
+
+    if (tabName === 'quiz') startQuiz();
+    if (tabName === 'list') renderList();
+  }
+
+  function startQuiz() {
+    if (currentWords.length === 0) return;
+    
+    quizAnswered = false;
+    document.getElementById('quiz-feedback').className = 'quiz-feedback hidden';
+    document.getElementById('quiz-next-btn').classList.add('hidden');
+
+    quizCurrent = getWeightedRandomWord(currentWords);
+
+    const stats = getWordStats();
+    const key = `${cardMode}_${quizCurrent.tagalog}`;
+    const wordStat = stats[key] || { correct: 0, incorrect: 0 };
+    const modeLabel = cardMode === 'tl-ja' ? '🇵🇭➔🇯🇵' : '🇯🇵➔🇵🇭';
+    document.getElementById('quiz-badge').innerText = `📊 [${modeLabel}] 正解 ${wordStat.correct} 回 / 不正解 ${wordStat.incorrect} 回`;
+
+    const isTlJa = cardMode === 'tl-ja';
+    document.getElementById('quiz-title').innerText = isTlJa ? "このタガログ語の意味は？" : "この日本語のタガログ語は？";
+    document.getElementById('quiz-question').innerText = isTlJa ? quizCurrent.tagalog : quizCurrent.japanese;
+
+    const correctAnswer = isTlJa ? quizCurrent.japanese : quizCurrent.tagalog;
+    let options = [correctAnswer];
+    let otherWords = wordsData.filter(w => (isTlJa ? w.japanese : w.tagalog) !== correctAnswer);
+    otherWords.sort(() => Math.random() - 0.5);
+    
+    for (let i = 0; i < Math.min(3, otherWords.length); i++) {
+      options.push(isTlJa ? otherWords[i].japanese : otherWords[i].tagalog);
+    }
+    options.sort(() => Math.random() - 0.5);
+
+    const optionsContainer = document.getElementById('quiz-options');
+    optionsContainer.innerHTML = '';
+    options.forEach(opt => {
+      const btn = document.createElement('button');
+      btn.className = 'quiz-opt-btn';
+      btn.innerText = opt;
+      btn.onclick = () => checkAnswer(btn, opt, correctAnswer);
+      optionsContainer.appendChild(btn);
+    });
+  }
+
+  function checkAnswer(selectedBtn, selectedOpt, correctAnswer) {
+    if (quizAnswered) return;
+    quizAnswered = true;
+
+    const isCorrect = selectedOpt === correctAnswer;
+
+    const stats = getWordStats();
+    const key = `${cardMode}_${quizCurrent.tagalog}`;
+    
+    if (!stats[key]) {
+      stats[key] = { correct: 0, incorrect: 0 };
+    }
+    
+    if (isCorrect) {
+      stats[key].correct += 1;
+    } else {
+      stats[key].incorrect += 1;
+    }
+    saveWordStats(stats);
+
+    const feedbackEl = document.getElementById('quiz-feedback');
+    const allBtns = document.querySelectorAll('.quiz-opt-btn');
+    allBtns.forEach(btn => {
+      btn.style.cursor = 'default';
+      if (btn.innerText === correctAnswer) {
+        btn.classList.add('correct');
+      }
+    });
+
+    if (isCorrect) {
+      selectedBtn.innerText = '⭕ ' + selectedBtn.innerText;
+      feedbackEl.innerText = "⭕ 正解です！";
+      feedbackEl.className = "quiz-feedback correct-msg";
+      
+      setTimeout(() => startQuiz(), 1500);
+    } else {
+      selectedBtn.classList.add('wrong');
+      selectedBtn.innerText = '❌ ' + selectedBtn.innerText;
+      
+      feedbackEl.innerHTML = `❌ 残念！<br><span style="font-size:14px; font-weight:normal;">正解は「<b>${correctAnswer}</b>」です</span>`;
+      feedbackEl.className = "quiz-feedback wrong-msg";
+      
+      document.getElementById('quiz-next-btn').classList.remove('hidden');
+    }
+
+    speakTagalog(quizCurrent.tagalog);
+  }
+
+  function renderList() {
+    const listContainer = document.getElementById('word-list');
+    const stats = getWordStats();
+    listContainer.innerHTML = '';
+    
+    currentWords.forEach(w => {
+      const statTlJa = stats[`tl-ja_${w.tagalog}`] || { correct: 0, incorrect: 0 };
+      const statJaTl = stats[`ja-tl_${w.tagalog}`] || { correct: 0, incorrect: 0 };
+
+      const item = document.createElement('div');
+      item.className = 'word-item';
+      
+      const deleteBtnHtml = w.isCustom ? `<button class="delete-btn" onclick="deleteCustomWord(${w.id})">削除</button>` : '';
+
+      item.innerHTML = `
+        <div style="flex: 1;">
+          <div style="font-weight:bold; color:#1e3a8a;">${w.tagalog} <span style="font-size:10px; color:#94a3b8; font-weight:normal;">[${w.cat}]</span></div>
+          <div style="font-size:12px; color:#64748b;">${w.katakana} / ${w.japanese}</div>
+          <div style="font-size:10px; color:#2563eb; margin-top:4px;">
+            🇵🇭➔🇯🇵 ⭕${statTlJa.correct}/❌${statTlJa.incorrect} &nbsp;|&nbsp; 
+            🇯🇵➔🇵🇭 ⭕${statJaTl.correct}/❌${statJaTl.incorrect}
+          </div>
+        </div>
+        <div style="display:flex; align-items:center;">
+          <button style="border:none; background:#eff6ff; padding:8px 12px; border-radius:20px; cursor:pointer;" onclick="speakTagalog('${w.tagalog}')">🔊</button>
+          ${deleteBtnHtml}
+        </div>
+      `;
+      listContainer.appendChild(item);
+    });
+  }
+
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js');
+  }
+
+  reloadAllWordsData();
+  initCategorySelect();
+  updateCard();
+</script>
+</body>
+</html>
