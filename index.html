@@ -168,18 +168,45 @@
   // GAS連携用設定
   const GAS_URL = "https://script.google.com/macros/s/AKfycbzyMz4MweXtJS808D--VvWapK0bkGlhfXZtORv3-KgISvHW7DmvV6o5KOm1QN9rzlX0/exec";
 
-  function saveWordToSpreadsheet(word, meaning) {
+  // スプレッドシート（GAS）へ全情報（単語・訳・カタカナ・カテゴリ）を送信・保存
+  function saveWordToSpreadsheet(wordObj) {
     fetch(GAS_URL, {
       method: "POST",
-      // GASの仕様上、Content-Typeは text/plain にするのがコツです
       headers: { "Content-Type": "text/plain" },
-      body: JSON.stringify({ word: word, meaning: meaning })
+      body: JSON.stringify({
+        word: wordObj.tagalog,
+        meaning: wordObj.japanese,
+        katakana: wordObj.katakana,
+        cat: wordObj.cat
+      })
     })
     .then(response => response.json())
     .then(data => {
-      alert("スプレッドシートに保存しました！");
+      console.log("スプレッドシートに保存完了");
     })
     .catch(error => console.error("Error:", error));
+  }
+
+  // スプレッドシート（GAS）から単語一覧を取得して読み込み・同期する処理
+  async function fetchWordsFromSpreadsheet() {
+    try {
+      const response = await fetch(GAS_URL);
+      const gasWords = await response.json();
+      
+      if (Array.isArray(gasWords) && gasWords.length > 0) {
+        gasWords.forEach(w => {
+          if (!w.katakana) w.katakana = generateKatakana(w.tagalog);
+        });
+
+        saveCustomWords(gasWords);
+        reloadAllWordsData();
+        initCategorySelect();
+        updateCard();
+        if (!document.getElementById('tab-list').classList.contains('hidden')) renderList();
+      }
+    } catch (error) {
+      console.warn("スプレッドシートからの同期に失敗しました:", error);
+    }
   }
 
   // iOS (iPhone) 音声再生ブロックの自動解除処理
@@ -366,8 +393,8 @@
     customList.push(newWord);
     saveCustomWords(customList);
 
-    // スプレッドシート（GAS）へ送信・保存
-    saveWordToSpreadsheet(tagalog, japanese);
+    // スプレッドシート（GAS）へ全情報を保存
+    saveWordToSpreadsheet(newWord);
 
     tagalogInput.value = '';
     japaneseInput.value = '';
@@ -751,9 +778,13 @@
     navigator.serviceWorker.register('sw.js');
   }
 
+  // 初期化：ローカルデータで即時表示
   reloadAllWordsData();
   initCategorySelect();
   updateCard();
+
+  // バックグラウンドでスプレッドシートから最新データを取得・同期
+  fetchWordsFromSpreadsheet();
 </script>
 </body>
 </html>
